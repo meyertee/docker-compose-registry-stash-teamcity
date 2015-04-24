@@ -1,0 +1,71 @@
+registry:
+  image: registry
+  environment:
+    - STORAGE_PATH=/registry
+    - GUNICORN_OPTS=[--preload]
+  volumes:
+    - /volumes/registry:/registry
+  ports: 
+    - "5000:5000"
+stashdb:
+  image: postgres
+  environment:
+    - POSTGRES_USER=stashdb
+    - POSTGRES_PASSWORD=jGpm4vZaZwLXYdeVHQvTNu7PWBCE
+  volumes:
+    - /volumes/stashdb:/var/lib/postgresql/data
+stash:
+  image: atlassian/stash
+  links:
+    - stashdb:db
+  user: root
+  environment:
+    - STORAGE_PATH=/var/atlassian/application-data/stash
+    - RUN_USER=root
+    - RUN_GROUP=root
+  volumes:
+    - /volumes/stash:/var/atlassian/application-data/stash
+  ports:
+    - "7990:7990"
+teamcitydb:
+  image: postgres
+  environment:
+    - POSTGRES_USER=teamcitydb
+    - POSTGRES_PASSWORD=jGpm4vZaZwLXYdeVHQvTNu7PWBCE
+  volumes:
+    - /volumes/teamcitydb:/var/lib/postgresql/data
+teamcity:
+  image: meyertee/teamcity-server
+  links:
+    - teamcitydb:db
+    - stash:stash
+    - registry:registry
+  environment:
+    - TEAMCITY_DATA_PATH=/data/teamcity
+    - DB_HOSTNAME=db
+    - DB_DATABASE=teamcitydb
+    - DB_USERNAME=teamcitydb
+    - DB_PASSWORD=jGpm4vZaZwLXYdeVHQvTNu7PWBCE
+  volumes:
+    - /volumes/teamcity:/data/teamcity
+  ports:
+    - "8111:8111"
+teamcityagent:
+  image: meyertee/teamcity-agent
+  privileged: true
+  links:
+    - teamcity:teamcity
+    - registry:registry
+  environment:
+    - TEAMCITY_HOSTNAME=teamcity
+    - TEAMCITY_PORT=8111
+    - REGISTRY_HOSTNAME=registry
+    - REGISTRY_PORT=5000
+    - REGISTRY_ADDRESS=http://registry:5000
+  volumes:
+    - /volumes/teamcityagent/docker:/var/lib/docker
+  ports:
+    - "8120:8120"
+#docker run --privileged --link dockercomposestashteamcity_teamcity_1:teamcity --link dockercomposestashteamcity_registry_1:registry -v /volumes/teamcityagent/docker:/var/lib/docker -p 8120:8120 meyertee/teamcity-agent
+
+
